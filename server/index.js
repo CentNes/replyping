@@ -15,7 +15,9 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+
+const publicDir = path.join(__dirname, '..', 'public');
+app.use(express.static(publicDir, { index: 'index.html' }));
 
 // API Routes
 app.use('/api/auth', authRouter);
@@ -29,11 +31,12 @@ app.use('/webhooks', webhooksRouter);
 // Dev simulate route (no auth for easy testing)
 app.use('/api/dev', webhooksRouter);
 
-// SPA fallback - serve index.html for all non-API routes
-app.get('/{*splat}', (req, res) => {
-  if (!req.path.startsWith('/api') && !req.path.startsWith('/webhooks')) {
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+// SPA fallback - serve index.html for all non-API/webhook routes
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/webhooks')) {
+    return res.sendFile(path.join(publicDir, 'index.html'));
   }
+  next();
 });
 
 // Initialize and start

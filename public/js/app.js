@@ -126,13 +126,15 @@ const App = {
         let data;
         if (isLogin) {
           data = await API.login(email, password);
+          this.user = data.user;
+          this.renderApp();
+          this.startPolling();
         } else {
           const name = document.getElementById('auth-name').value;
           data = await API.register(email, password, name);
+          this.user = data.user;
+          this.renderWelcome();
         }
-        this.user = data.user;
-        this.renderApp();
-        this.startPolling();
       } catch (err) {
         errEl.innerHTML = `<div class="error-msg">${err.message}</div>`;
       }
@@ -140,6 +142,56 @@ const App = {
 
     document.getElementById('switch-auth').addEventListener('click', () => {
       this.renderAuth(isLogin ? 'register' : 'login');
+    });
+  },
+
+  // ===== WELCOME / SUCCESS SCREEN =====
+  renderWelcome() {
+    const firstName = (this.user.name || this.user.email.split('@')[0]).split(' ')[0];
+    document.getElementById('app').innerHTML = `
+      <div class="auth-screen welcome-screen">
+        <div class="welcome-checkmark">
+          <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+            <circle cx="40" cy="40" r="38" stroke="#00b894" stroke-width="4" fill="#e8f8f5"/>
+            <path d="M24 40 L35 51 L56 30" stroke="#00b894" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+              <animate attributeName="stroke-dasharray" from="0 100" to="100 100" dur="0.6s" fill="freeze"/>
+            </path>
+          </svg>
+        </div>
+        <div class="welcome-title">Welcome, ${this.escapeHtml(firstName)}!</div>
+        <div class="welcome-subtitle">Your account is ready. Here's how ReplyPing works:</div>
+        <div class="welcome-steps">
+          <div class="welcome-step">
+            <span class="welcome-step-icon">&#x1F4E9;</span>
+            <div>
+              <div class="welcome-step-title">Messages become To-Dos</div>
+              <div class="welcome-step-desc">Every inbound Instagram DM or WhatsApp message creates a to-do automatically.</div>
+            </div>
+          </div>
+          <div class="welcome-step">
+            <span class="welcome-step-icon">&#x23F0;</span>
+            <div>
+              <div class="welcome-step-title">Get Reminded</div>
+              <div class="welcome-step-desc">Set your reminder rules and we'll nudge you before customers wait too long.</div>
+            </div>
+          </div>
+          <div class="welcome-step">
+            <span class="welcome-step-icon">&#x2705;</span>
+            <div>
+              <div class="welcome-step-title">Mark Done & Stay Organized</div>
+              <div class="welcome-step-desc">Reply, mark as done, snooze, or add notes. Never drop the ball again.</div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="welcome-continue" style="margin-top:24px">
+          Let's Go! &#x1F680;
+        </button>
+      </div>
+    `;
+
+    document.getElementById('welcome-continue').addEventListener('click', () => {
+      this.renderApp();
+      this.startPolling();
     });
   },
 

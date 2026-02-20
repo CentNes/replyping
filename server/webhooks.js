@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('./database');
+const { getPlanLimits, incrementTodoUsage } = require('./billing');
 
 const router = express.Router();
 
@@ -50,11 +51,20 @@ function processInboundMessage(userId, channelType, contactName, contactHandle, 
       .run(messageContent.substring(0, 200), todo.id);
     todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
   } else {
+    // Check plan limits before creating new todo
+    const limits = getPlanLimits(userId);
+    if (limits && !limits.can_create_todo) {
+      return { conversation, message: { id: msgId }, todo: null, limit_reached: true };
+    }
+
     const todoId = uuidv4();
     db.prepare(`INSERT INTO todos (id, user_id, conversation_id, channel_type, contact_name, contact_handle, last_message_preview, last_message_time)
       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`)
       .run(todoId, userId, conversation.id, channelType, contactName, contactHandle, messageContent.substring(0, 200));
     todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(todoId);
+
+    // Increment usage counter
+    incrementTodoUsage(userId);
   }
 
   return { conversation, message: { id: msgId }, todo };

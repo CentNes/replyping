@@ -24,6 +24,13 @@ function initDatabase() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL DEFAULT '',
+      plan TEXT NOT NULL DEFAULT 'free' CHECK(plan IN ('free', 'premium')),
+      stripe_customer_id TEXT DEFAULT NULL,
+      stripe_subscription_id TEXT DEFAULT NULL,
+      subscription_status TEXT DEFAULT 'none' CHECK(subscription_status IN ('none', 'active', 'past_due', 'canceled', 'trialing')),
+      subscription_ends_at TEXT DEFAULT NULL,
+      todos_used_this_month INTEGER DEFAULT 0,
+      todos_month TEXT DEFAULT NULL,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -122,6 +129,29 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
     CREATE INDEX IF NOT EXISTS idx_conversations_external ON conversations(external_id, channel_type);
   `);
+
+  // Migration: add subscription columns to existing users table
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'`);
+  } catch (e) { /* column already exists */ }
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN stripe_customer_id TEXT DEFAULT NULL`);
+  } catch (e) {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT DEFAULT NULL`);
+  } catch (e) {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN subscription_status TEXT DEFAULT 'none'`);
+  } catch (e) {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN subscription_ends_at TEXT DEFAULT NULL`);
+  } catch (e) {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN todos_used_this_month INTEGER DEFAULT 0`);
+  } catch (e) {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN todos_month TEXT DEFAULT NULL`);
+  } catch (e) {}
 
   console.log('Database initialized successfully');
 }

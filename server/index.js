@@ -8,9 +8,14 @@ const rulesRouter = require('./rules');
 const webhooksRouter = require('./webhooks');
 const { router: notificationsRouter } = require('./notifications');
 const { startScheduler } = require('./scheduler');
+const { router: billingRouter } = require('./billing');
+const stripeWebhookRouter = require('./stripe-webhook');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Stripe webhook needs raw body BEFORE json middleware
+app.use('/webhooks/stripe', stripeWebhookRouter);
 
 // Middleware
 app.use(cors());
@@ -24,6 +29,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/todos', todosRouter);
 app.use('/api/rules', rulesRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/billing', billingRouter);
 
 // Webhook Routes (no auth required - these are called by Instagram/WhatsApp)
 app.use('/webhooks', webhooksRouter);

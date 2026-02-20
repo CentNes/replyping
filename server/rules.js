@@ -1,6 +1,7 @@
 const express = require('express');
 const { getDb } = require('./database');
 const { authenticate } = require('./auth');
+const { getPlanLimits } = require('./billing');
 
 const router = express.Router();
 
@@ -26,6 +27,17 @@ router.put('/', authenticate, (req, res) => {
   try {
     const { remind_after_minutes, business_hours_start, business_hours_end, weekend_enabled, escalation_hours } = req.body;
     const db = getDb();
+
+    // Check plan limits for premium features
+    const limits = getPlanLimits(req.user.id);
+    if (limits) {
+      if (!limits.custom_reminders && remind_after_minutes && ![15, 30, 60].includes(remind_after_minutes)) {
+        return res.status(403).json({ error: 'Custom reminder intervals require Premium plan', upgrade: true });
+      }
+      if (!limits.escalation && escalation_hours && escalation_hours > 0) {
+        return res.status(403).json({ error: 'Escalation alerts require Premium plan', upgrade: true });
+      }
+    }
 
     db.prepare(`
       UPDATE reminder_rules SET

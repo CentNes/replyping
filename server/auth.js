@@ -84,7 +84,7 @@ router.post('/login', (req, res) => {
 // GET /api/auth/me
 router.get('/me', authenticate, (req, res) => {
   const db = getDb();
-  const user = db.prepare('SELECT id, email, name, created_at FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT id, email, name, plan, subscription_status, created_at FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({ user });
 });

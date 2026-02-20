@@ -108,6 +108,27 @@ const API = {
     return this.request('/api/notifications/read-all', { method: 'PUT' });
   },
 
+  // Billing
+  async getPlans() {
+    return this.request('/api/billing/plans');
+  },
+
+  async getBillingStatus() {
+    return this.request('/api/billing/status');
+  },
+
+  async createCheckout() {
+    return this.request('/api/billing/checkout', { method: 'POST' });
+  },
+
+  async createPortal() {
+    return this.request('/api/billing/portal', { method: 'POST' });
+  },
+
+  async demoUpgrade() {
+    return this.request('/api/billing/demo-upgrade', { method: 'POST' });
+  },
+
   // Dev simulate
   async simulate(data) {
     return this.request('/api/dev/simulate', {

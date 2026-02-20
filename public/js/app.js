@@ -10,6 +10,7 @@ const App = {
   unreadCount: 0,
   notifPanelOpen: false,
   refreshInterval: null,
+  billing: null, // { plan, plan_details, usage, subscription_status }
 
   // ===== INIT =====
   async init() {
@@ -39,15 +40,17 @@ const App = {
 
   async loadData() {
     try {
-      const [statsData, todosData, notifData] = await Promise.all([
+      const [statsData, todosData, notifData, billingData] = await Promise.all([
         API.getStats(),
         API.getTodos(this.currentTab),
-        API.getNotifications()
+        API.getNotifications(),
+        API.getBillingStatus()
       ]);
       this.stats = statsData;
       this.todos = todosData.todos;
       this.notifications = notifData.notifications;
       this.unreadCount = notifData.unread_count;
+      this.billing = billingData;
       this.updateUI();
     } catch (e) {
       console.error('Load data error:', e);
@@ -243,9 +246,14 @@ const App = {
     switch (this.currentScreen) {
       case 'inbox': return this.renderInbox();
       case 'rules': return this.renderRulesScreen();
+      case 'billing': return this.renderBillingScreen();
       case 'dev': return this.renderDevPanel();
       default: return this.renderInbox();
     }
+  },
+
+  isPremium() {
+    return this.billing?.plan === 'premium';
   },
 
   // ===== INBOX =====
@@ -383,7 +391,7 @@ const App = {
             ${remindValues.map(v => `
               <button class="chip ${this.rules.remind_after_minutes === v ? 'active' : ''}" data-minutes="${v}">${v}m</button>
             `).join('')}
-            <button class="chip ${isCustomRemind ? 'active' : ''}" data-minutes="custom">Custom</button>
+            <button class="chip ${isCustomRemind ? 'active' : ''}" data-minutes="custom">Custom ${!this.isPremium() ? '&#x2B50;' : ''}</button>
           </div>
           ${isCustomRemind ? `
             <div class="form-group" style="margin-top:12px">
@@ -420,15 +428,21 @@ const App = {
           </div>
         </div>
 
-        <div class="settings-card">
-          <div class="settings-card-title">&#x1F6A8; Escalation</div>
+        <div class="settings-card ${!this.isPremium() ? 'premium-gated' : ''}">
+          <div class="settings-card-title">&#x1F6A8; Escalation ${!this.isPremium() ? '<span class="premium-badge">&#x2B50; PRO</span>' : ''}</div>
+          ${!this.isPremium() ? `
+          <div class="premium-gate-overlay" id="escalation-gate">
+            <div>&#x1F512; Premium feature</div>
+            <button class="btn btn-sm btn-primary" style="margin-top:8px" data-action="show-upgrade" data-feature="Escalation alerts">Upgrade to Unlock</button>
+          </div>
+          ` : ''}
           <div class="setting-row">
             <div>
               <div class="setting-label">Escalate After (hours)</div>
               <div class="setting-desc">0 = disabled. Send urgent alert after X hours.</div>
             </div>
             <div class="setting-value">
-              <input type="number" id="escalation-hours" value="${this.rules.escalation_hours || 0}" min="0" max="72" style="width:70px;padding:8px;border:2px solid var(--border);border-radius:6px;font-family:inherit;text-align:center">
+              <input type="number" id="escalation-hours" value="${this.rules.escalation_hours || 0}" min="0" max="72" style="width:70px;padding:8px;border:2px solid var(--border);border-radius:6px;font-family:inherit;text-align:center" ${!this.isPremium() ? 'disabled' : ''}>
             </div>
           </div>
         </div>
@@ -443,11 +457,20 @@ const App = {
   },
 
   bindRulesActions() {
+    // Upgrade prompt buttons
+    document.querySelectorAll('[data-action="show-upgrade"]').forEach(btn => {
+      btn.addEventListener('click', () => this.showUpgradePrompt(btn.dataset.feature));
+    });
+
     // Remind chips
     document.querySelectorAll('#remind-chips .chip').forEach(chip => {
       chip.addEventListener('click', async () => {
         const mins = chip.dataset.minutes;
         if (mins === 'custom') {
+          if (!this.isPremium()) {
+            this.showUpgradePrompt('Custom reminder intervals');
+            return;
+          }
           this.rules.remind_after_minutes = this.rules.remind_after_minutes || 45;
           this.loadAndRenderRules();
           return;
@@ -505,6 +528,211 @@ const App = {
         } catch (e) { this.toast('Failed to save settings'); }
       });
     }
+  },
+
+  // ===== BILLING SCREEN =====
+  renderBillingScreen() {
+    return `
+      <div class="screen" id="billing-screen">
+        <div class="screen-title">&#x1F4B3; Plan & Billing</div>
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+    `;
+  },
+
+  async loadAndRenderBilling() {
+    try {
+      const data = await API.getBillingStatus();
+      this.billing = data;
+      const screen = document.getElementById('billing-screen');
+      if (!screen) return;
+
+      const isPremium = data.plan === 'premium';
+      const usage = data.usage;
+      const usagePercent = usage.todos_limit === -1 ? 0 : Math.min(100, Math.round((usage.todos_used / usage.todos_limit) * 100));
+      const usageColor = usagePercent > 80 ? 'var(--danger)' : usagePercent > 50 ? 'var(--warning-dark)' : 'var(--accent)';
+
+      screen.innerHTML = `
+        <div class="screen-title">&#x1F4B3; Plan & Billing</div>
+
+        <!-- Current Plan -->
+        <div class="settings-card" style="border: 2px solid ${isPremium ? 'var(--primary)' : 'var(--border)'}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div>
+              <div style="font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Current Plan</div>
+              <div style="font-size:24px;font-weight:700;color:${isPremium ? 'var(--primary)' : 'var(--text)'}">${isPremium ? 'Premium' : 'Free'}</div>
+            </div>
+            ${isPremium ? '<span class="premium-badge-lg">&#x2B50; PREMIUM</span>' : '<span style="font-size:28px">&#x1F193;</span>'}
+          </div>
+          ${isPremium && data.subscription_ends_at ? `<div style="font-size:12px;color:var(--text-muted)">Renews ${this.formatDate(data.subscription_ends_at)}</div>` : ''}
+        </div>
+
+        <!-- Usage -->
+        ${!isPremium ? `
+        <div class="settings-card">
+          <div class="settings-card-title">&#x1F4CA; This Month's Usage</div>
+          <div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px">
+              <span>To-dos created</span>
+              <span style="font-weight:600">${usage.todos_used} / ${usage.todos_limit === -1 ? '&infin;' : usage.todos_limit}</span>
+            </div>
+            <div class="usage-bar">
+              <div class="usage-bar-fill" style="width:${usagePercent}%;background:${usageColor}"></div>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">${usage.todos_remaining === -1 ? 'Unlimited' : usage.todos_remaining + ' remaining'}</div>
+          </div>
+        </div>
+        ` : `
+        <div class="settings-card">
+          <div class="settings-card-title">&#x1F4CA; Usage</div>
+          <div style="font-size:14px;color:var(--text-light)">&#x221E; Unlimited to-dos &middot; ${usage.todos_used} created this month</div>
+        </div>
+        `}
+
+        <!-- Plan Comparison -->
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+          <!-- Free Plan -->
+          <div class="plan-card ${!isPremium ? 'plan-card-current' : ''}">
+            <div class="plan-card-name">Free</div>
+            <div class="plan-card-price">$0<span>/mo</span></div>
+            <ul class="plan-features">
+              <li>&#x2705; 2 channels</li>
+              <li>&#x2705; 50 to-dos/month</li>
+              <li>&#x2705; Standard reminders</li>
+              <li>&#x2705; Business hours</li>
+              <li>&#x274C; Custom reminders</li>
+              <li>&#x274C; Escalation alerts</li>
+            </ul>
+            ${!isPremium ? '<div class="plan-card-badge">Current</div>' : ''}
+          </div>
+
+          <!-- Premium Plan -->
+          <div class="plan-card plan-card-premium ${isPremium ? 'plan-card-current' : ''}">
+            <div class="plan-card-name">Premium</div>
+            <div class="plan-card-price">$9<span>/mo</span></div>
+            <ul class="plan-features">
+              <li>&#x2705; Unlimited channels</li>
+              <li>&#x2705; Unlimited to-dos</li>
+              <li>&#x2705; Custom reminders</li>
+              <li>&#x2705; Escalation alerts</li>
+              <li>&#x2705; Priority support</li>
+              <li>&#x2705; Everything in Free</li>
+            </ul>
+            ${isPremium ? '<div class="plan-card-badge">Current</div>' : ''}
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        ${!isPremium ? `
+          <button class="btn btn-primary" id="btn-upgrade-stripe" style="margin-bottom:10px">
+            &#x2B50; Upgrade to Premium &mdash; $9/month
+          </button>
+          <button class="btn btn-outline" id="btn-upgrade-demo" style="width:100%;font-size:13px">
+            &#x1F6E0; Activate Premium (Demo / No Card)
+          </button>
+        ` : `
+          <button class="btn btn-outline" id="btn-manage-billing" style="width:100%;margin-bottom:10px">
+            Manage Subscription
+          </button>
+          <button class="btn btn-outline" id="btn-upgrade-demo" style="width:100%;font-size:13px;color:var(--danger)">
+            &#x1F6E0; Switch to Free (Demo)
+          </button>
+        `}
+      `;
+
+      this.bindBillingActions();
+    } catch (e) {
+      console.error('Load billing error:', e);
+    }
+  },
+
+  bindBillingActions() {
+    const upgradeStripe = document.getElementById('btn-upgrade-stripe');
+    if (upgradeStripe) {
+      upgradeStripe.addEventListener('click', async () => {
+        try {
+          upgradeStripe.textContent = 'Redirecting to Stripe...';
+          upgradeStripe.disabled = true;
+          const data = await API.createCheckout();
+          if (data.checkout_url) {
+            window.location.href = data.checkout_url;
+          }
+        } catch (e) {
+          this.toast(e.message || 'Stripe not configured yet. Use the demo button below!');
+          upgradeStripe.textContent = '\u2B50 Upgrade to Premium \u2014 $9/month';
+          upgradeStripe.disabled = false;
+        }
+      });
+    }
+
+    const manageBilling = document.getElementById('btn-manage-billing');
+    if (manageBilling) {
+      manageBilling.addEventListener('click', async () => {
+        try {
+          const data = await API.createPortal();
+          if (data.portal_url) {
+            window.location.href = data.portal_url;
+          }
+        } catch (e) {
+          this.toast(e.message || 'Could not open billing portal');
+        }
+      });
+    }
+
+    const demoUpgrade = document.getElementById('btn-upgrade-demo');
+    if (demoUpgrade) {
+      demoUpgrade.addEventListener('click', async () => {
+        try {
+          const data = await API.demoUpgrade();
+          this.toast(data.message);
+          this.loadAndRenderBilling();
+          this.loadData();
+        } catch (e) {
+          this.toast('Failed');
+        }
+      });
+    }
+  },
+
+  formatDate(dateStr) {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  },
+
+  showUpgradePrompt(feature) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="font-size:48px">&#x2B50;</div>
+          <div class="modal-title">Upgrade to Premium</div>
+          <div style="font-size:14px;color:var(--text-light);margin-bottom:16px">
+            ${feature ? feature + ' requires' : 'This feature requires'} a Premium plan.
+            Unlock unlimited to-dos, custom reminders, escalation alerts and more.
+          </div>
+          <div style="font-size:22px;font-weight:700;color:var(--primary);margin-bottom:16px">$9/month</div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="upgrade-cancel">Maybe Later</button>
+          <button class="btn btn-primary" id="upgrade-go">&#x2B50; Upgrade Now</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.getElementById('upgrade-cancel').addEventListener('click', () => overlay.remove());
+    document.getElementById('upgrade-go').addEventListener('click', () => {
+      overlay.remove();
+      this.currentScreen = 'billing';
+      const content = document.getElementById('main-content');
+      content.innerHTML = this.renderBillingScreen();
+      document.querySelectorAll('.nav-item').forEach(n => {
+        n.classList.toggle('active', n.dataset.screen === 'billing');
+      });
+      this.loadAndRenderBilling();
+    });
   },
 
   // ===== DEV PANEL =====
@@ -650,6 +878,9 @@ const App = {
         <button class="nav-item ${this.currentScreen === 'rules' ? 'active' : ''}" data-screen="rules">
           <span class="nav-icon">&#x2699;</span>Rules
         </button>
+        <button class="nav-item ${this.currentScreen === 'billing' ? 'active' : ''}" data-screen="billing">
+          <span class="nav-icon">&#x1F4B3;</span>Plan
+        </button>
         <button class="nav-item ${this.currentScreen === 'dev' ? 'active' : ''}" data-screen="dev">
           <span class="nav-icon">&#x1F6E0;</span>Dev
         </button>
@@ -748,6 +979,7 @@ const App = {
 
         // Bind screen-specific actions
         if (this.currentScreen === 'rules') this.loadAndRenderRules();
+        if (this.currentScreen === 'billing') this.loadAndRenderBilling();
         if (this.currentScreen === 'dev') this.bindDevActions();
         if (this.currentScreen === 'inbox') this.bindTodoActions();
       });

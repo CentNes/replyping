@@ -431,6 +431,129 @@ body {
   color: var(--text-light);
 }
 
+/* ===== BILLING & PLANS ===== */
+.plan-card {
+  flex: 1;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  box-shadow: var(--shadow);
+  border: 2px solid var(--border);
+  position: relative;
+}
+
+.plan-card-premium {
+  border-color: var(--primary-light);
+  background: linear-gradient(135deg, #f8f7ff 0%, #ede7ff 100%);
+}
+
+.plan-card-current {
+  border-color: var(--primary);
+}
+
+.plan-card-name {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.plan-card-premium .plan-card-name { color: var(--primary); }
+
+.plan-card-price {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+.plan-card-price span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-light);
+}
+
+.plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plan-features li {
+  font-size: 13px;
+  padding: 4px 0;
+  color: var(--text-light);
+}
+
+.plan-card-badge {
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  background: var(--primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+.premium-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.premium-badge-lg {
+  display: inline-block;
+  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
+}
+
+.usage-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* Premium gating */
+.premium-gated {
+  position: relative;
+}
+
+.premium-gate-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  z-index: 5;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+  backdrop-filter: blur(2px);
+}
+
 /* ===== TODO CARD ===== */
 .todo-card {
   background: var(--card);

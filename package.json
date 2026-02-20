@@ -18,6 +18,7 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.2.1",
+    "stripe": "^20.3.1",
     "uuid": "^13.0.0"
   }
 }

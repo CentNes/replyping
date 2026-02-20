@@ -5,6 +5,9 @@ const { getPlanLimits, incrementTodoUsage } = require('./billing');
 
 const router = express.Router();
 
+// Webhook verify token - set this in Railway env vars
+const WEBHOOK_VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'replyping-verify-2026';
+
 // Helper: process inbound message and create/update todo
 function processInboundMessage(userId, channelType, contactName, contactHandle, messageContent, externalConvId) {
   const db = getDb();
@@ -96,15 +99,10 @@ function processOutboundMessage(userId, channelType, contactHandle, messageConte
 }
 
 // POST /webhooks/instagram
-// Simulates Instagram Messaging API webhook
+// Receives real Instagram Messaging API webhooks from Meta
 router.post('/instagram', (req, res) => {
   try {
     const { entry } = req.body;
-
-    // Handle Instagram webhook verification (GET request challenge)
-    if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token']) {
-      return res.send(req.query['hub.challenge']);
-    }
 
     if (!entry || !entry.length) {
       return res.status(400).json({ error: 'No entry data' });
@@ -141,23 +139,21 @@ router.post('/instagram', (req, res) => {
   }
 });
 
-// GET /webhooks/instagram - Verification endpoint
+// GET /webhooks/instagram - Verification endpoint (Meta sends this to confirm your webhook URL)
 router.get('/instagram', (req, res) => {
-  if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token']) {
+  if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === WEBHOOK_VERIFY_TOKEN) {
+    console.log('Instagram webhook verified successfully');
     return res.send(req.query['hub.challenge']);
   }
-  res.status(400).send('Bad request');
+  console.warn('Instagram webhook verification failed. Token mismatch.');
+  res.status(403).send('Verification failed');
 });
 
 // POST /webhooks/whatsapp
-// Simulates WhatsApp Cloud API webhook
+// Receives real WhatsApp Cloud API webhooks from Meta
 router.post('/whatsapp', (req, res) => {
   try {
     const { entry } = req.body;
-
-    if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token']) {
-      return res.send(req.query['hub.challenge']);
-    }
 
     if (!entry || !entry.length) {
       return res.status(400).json({ error: 'No entry data' });
@@ -207,12 +203,14 @@ router.post('/whatsapp', (req, res) => {
   }
 });
 
-// GET /webhooks/whatsapp - Verification endpoint
+// GET /webhooks/whatsapp - Verification endpoint (Meta sends this to confirm your webhook URL)
 router.get('/whatsapp', (req, res) => {
-  if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token']) {
+  if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === WEBHOOK_VERIFY_TOKEN) {
+    console.log('WhatsApp webhook verified successfully');
     return res.send(req.query['hub.challenge']);
   }
-  res.status(400).send('Bad request');
+  console.warn('WhatsApp webhook verification failed. Token mismatch.');
+  res.status(403).send('Verification failed');
 });
 
 // POST /api/dev/simulate - Dev panel endpoint for sending test messages

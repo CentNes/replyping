@@ -1120,3 +1120,89 @@ body {
     background: var(--bg);
   }
 }
+
+/* ===== REPLY BOX ===== */
+.btn-reply {
+  background: var(--primary);
+  color: white;
+  border: none;
+  font-weight: 600;
+}
+.btn-reply:hover {
+  background: var(--primary-dark);
+}
+
+.todo-card.reply-active {
+  border: 2px solid var(--primary-light);
+  box-shadow: 0 4px 20px rgba(108, 92, 231, 0.15);
+}
+
+.reply-box {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+  to { opacity: 1; transform: translateY(0); max-height: 300px; }
+}
+
+.reply-box-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.reply-textarea {
+  width: 100%;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 70px;
+  transition: border-color 0.2s;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.reply-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+.reply-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.reply-box-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-send {
+  background: var(--accent);
+  color: white;
+  border: none;
+  font-weight: 700;
+  padding: 8px 20px;
+  font-size: 14px;
+}
+
+.btn-send:hover {
+  background: #00a381;
+}
+
+.btn-send:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

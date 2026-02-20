@@ -11,6 +11,8 @@ const App = {
   notifPanelOpen: false,
   refreshInterval: null,
   billing: null, // { plan, plan_details, usage, subscription_status }
+  channelStatus: { whatsapp: false, instagram: false },
+  replyOpenFor: null, // todo id with reply box open
 
   // ===== INIT =====
   async init() {
@@ -40,17 +42,19 @@ const App = {
 
   async loadData() {
     try {
-      const [statsData, todosData, notifData, billingData] = await Promise.all([
+      const [statsData, todosData, notifData, billingData, channelData] = await Promise.all([
         API.getStats(),
         API.getTodos(this.currentTab),
         API.getNotifications(),
-        API.getBillingStatus()
+        API.getBillingStatus(),
+        API.getChannelStatus().catch(() => ({ whatsapp: false, instagram: false }))
       ]);
       this.stats = statsData;
       this.todos = todosData.todos;
       this.notifications = notifData.notifications;
       this.unreadCount = notifData.unread_count;
       this.billing = billingData;
+      this.channelStatus = channelData;
       this.updateUI();
     } catch (e) {
       console.error('Load data error:', e);
@@ -302,9 +306,13 @@ const App = {
     const timeAgo = this.timeAgo(todo.last_message_time);
     const channelClass = `channel-${todo.channel_type}`;
 
+    const canReply = this.channelStatus[todo.channel_type];
+    const isReplyOpen = this.replyOpenFor === todo.id;
+
     let actions = '';
     if (todo.status === 'unreplied') {
       actions = `
+        ${canReply ? `<button class="btn btn-sm btn-reply" data-action="reply-toggle" data-id="${todo.id}">&#x21A9;&#xFE0F; Reply</button>` : ''}
         <button class="btn btn-sm btn-done" data-action="done" data-id="${todo.id}">&#x2713; Done</button>
         <div class="snooze-dropdown">
           <button class="btn btn-sm btn-snooze" data-action="snooze-toggle" data-id="${todo.id}">&#x23F0; Snooze</button>
@@ -319,6 +327,7 @@ const App = {
       `;
     } else if (todo.status === 'snoozed') {
       actions = `
+        ${canReply ? `<button class="btn btn-sm btn-reply" data-action="reply-toggle" data-id="${todo.id}">&#x21A9;&#xFE0F; Reply</button>` : ''}
         <button class="btn btn-sm btn-done" data-action="done" data-id="${todo.id}">&#x2713; Done</button>
         <button class="btn btn-sm btn-outline" data-action="unreply" data-id="${todo.id}">&#x21A9; Wake Up</button>
         <button class="btn btn-sm btn-outline" data-action="note" data-id="${todo.id}">&#x1F4DD;</button>
@@ -327,6 +336,22 @@ const App = {
       actions = `
         <button class="btn btn-sm btn-outline" data-action="unreply" data-id="${todo.id}">&#x21A9; Reopen</button>
         <button class="btn btn-sm btn-outline" data-action="note" data-id="${todo.id}">&#x1F4DD;</button>
+      `;
+    }
+
+    let replyBox = '';
+    if (isReplyOpen && todo.status !== 'done') {
+      replyBox = `
+        <div class="reply-box" id="reply-box-${todo.id}">
+          <div class="reply-box-header">Reply to ${this.escapeHtml(todo.contact_name)} via ${todo.channel_type === 'instagram' ? 'Instagram' : 'WhatsApp'}</div>
+          <textarea class="reply-textarea" id="reply-text-${todo.id}" placeholder="Type your reply..." rows="3"></textarea>
+          <div class="reply-box-actions">
+            <button class="btn btn-sm btn-outline" data-action="reply-cancel" data-id="${todo.id}">Cancel</button>
+            <button class="btn btn-sm btn-send" data-action="reply-send" data-id="${todo.id}">
+              Send &#x1F680;
+            </button>
+          </div>
+        </div>
       `;
     }
 
@@ -346,7 +371,7 @@ const App = {
     }
 
     return `
-      <div class="todo-card ${channelClass} ${isOverdue ? 'overdue' : ''}">
+      <div class="todo-card ${channelClass} ${isOverdue ? 'overdue' : ''} ${isReplyOpen ? 'reply-active' : ''}">
         <div class="todo-card-header">
           <div class="channel-icon ${todo.channel_type}">${channelIcon}</div>
           <div class="todo-contact">
@@ -359,6 +384,7 @@ const App = {
         <div class="todo-message">${this.escapeHtml(todo.last_message_preview)}</div>
         ${noteHtml}
         <div class="todo-actions">${actions}</div>
+        ${replyBox}
       </div>
     `;
   },
@@ -1052,6 +1078,56 @@ const App = {
 
           case 'note':
             this.showNoteModal(id);
+            break;
+
+          case 'reply-toggle':
+            if (this.replyOpenFor === id) {
+              this.replyOpenFor = null;
+            } else {
+              this.replyOpenFor = id;
+            }
+            // Re-render the todo list to show/hide reply box
+            const listEl2 = document.getElementById('todo-list');
+            if (listEl2) {
+              listEl2.innerHTML = this.renderTodoList();
+              this.bindTodoActions();
+              // Focus the reply textarea
+              setTimeout(() => {
+                const textarea = document.getElementById(`reply-text-${id}`);
+                if (textarea) textarea.focus();
+              }, 50);
+            }
+            break;
+
+          case 'reply-cancel':
+            this.replyOpenFor = null;
+            const listEl3 = document.getElementById('todo-list');
+            if (listEl3) {
+              listEl3.innerHTML = this.renderTodoList();
+              this.bindTodoActions();
+            }
+            break;
+
+          case 'reply-send':
+            const textarea = document.getElementById(`reply-text-${id}`);
+            const replyMsg = textarea?.value?.trim();
+            if (!replyMsg) {
+              this.toast('Please type a message');
+              return;
+            }
+            const sendBtn = btn;
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = 'Sending...';
+            try {
+              await API.replyToTodo(id, replyMsg);
+              this.replyOpenFor = null;
+              this.toast('Reply sent & marked done!');
+              this.loadData();
+            } catch (e) {
+              this.toast(e.message || 'Failed to send reply');
+              sendBtn.disabled = false;
+              sendBtn.innerHTML = 'Send &#x1F680;';
+            }
             break;
 
           case 'open-channel':

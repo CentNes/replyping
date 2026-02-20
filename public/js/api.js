@@ -129,6 +129,18 @@ const API = {
     return this.request('/api/billing/demo-upgrade', { method: 'POST' });
   },
 
+  // Reply
+  async replyToTodo(id, message) {
+    return this.request(`/api/todos/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    });
+  },
+
+  async getChannelStatus() {
+    return this.request('/api/todos/channel-status');
+  },
+
   // Dev simulate
   async simulate(data) {
     return this.request('/api/dev/simulate', {

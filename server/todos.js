@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('./database');
 const { authenticate } = require('./auth');
+const { sendMessage, isChannelConfigured } = require('./meta-api');
 
 const router = express.Router();
 
@@ -159,6 +160,76 @@ router.put('/:id/note', authenticate, (req, res) => {
     console.error('Add note error:', err);
     res.status(500).json({ error: 'Failed to add note' });
   }
+});
+
+// POST /api/todos/:id/reply - Send a reply via WhatsApp/Instagram and mark as done
+router.post('/:id/reply', authenticate, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    const db = getDb();
+    const todo = db.prepare('SELECT * FROM todos WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+
+    if (!todo) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+
+    // Check if the channel API is configured
+    const configured = isChannelConfigured(todo.channel_type);
+
+    if (!configured) {
+      return res.status(400).json({
+        error: `${todo.channel_type === 'whatsapp' ? 'WhatsApp' : 'Instagram'} API is not configured. Set the required environment variables.`,
+        needs_config: true
+      });
+    }
+
+    // Send the message via Meta API
+    const result = await sendMessage(todo.channel_type, todo.contact_handle, message.trim());
+
+    if (!result.success) {
+      return res.status(502).json({
+        error: `Failed to send message: ${result.error}`,
+        api_error: true
+      });
+    }
+
+    // Save outbound message
+    const conversation = db.prepare('SELECT * FROM conversations WHERE id = ?').get(todo.conversation_id);
+    if (conversation) {
+      const msgId = uuidv4();
+      db.prepare('INSERT INTO messages (id, conversation_id, user_id, direction, content) VALUES (?, ?, ?, ?, ?)')
+        .run(msgId, conversation.id, req.user.id, 'outbound', message.trim());
+    }
+
+    // Mark todo as done
+    db.prepare(`
+      UPDATE todos SET status = 'done', done_at = datetime('now'), updated_at = datetime('now')
+      WHERE id = ? AND user_id = ?
+    `).run(todo.id, req.user.id);
+
+    const updatedTodo = db.prepare('SELECT * FROM todos WHERE id = ?').get(todo.id);
+
+    res.json({
+      todo: updatedTodo,
+      sent: true,
+      messageId: result.messageId
+    });
+  } catch (err) {
+    console.error('Reply error:', err);
+    res.status(500).json({ error: 'Failed to send reply' });
+  }
+});
+
+// GET /api/todos/channel-status - Check which channels have API configured
+router.get('/channel-status', authenticate, (req, res) => {
+  res.json({
+    whatsapp: isChannelConfigured('whatsapp'),
+    instagram: isChannelConfigured('instagram'),
+  });
 });
 
 module.exports = router;

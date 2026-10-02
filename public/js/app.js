@@ -16,6 +16,11 @@ const App = {
 
   // ===== INIT =====
   async init() {
+    const hash = location.hash;
+    if (hash.startsWith('#reset/')) {
+      this.renderResetPassword(hash.slice(7));
+      return;
+    }
     if (API.token) {
       try {
         const data = await API.getMe();
@@ -119,6 +124,7 @@ const App = {
             ? 'New here? <a id="switch-auth">Create an account</a>'
             : 'Already have an account? <a id="switch-auth">Sign in</a>'}
         </div>
+        ${isLogin ? '<div style="margin-top:8px"><a id="forgot-password" style="font-size:13px;color:var(--text-muted);cursor:pointer">Forgot password?</a></div>' : ''}
         ${isLogin && location.hostname === 'localhost' ? '<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">Demo: demo@replyping.com / demo123</div>' : ''}
       </div>
     `;
@@ -149,6 +155,89 @@ const App = {
 
     document.getElementById('switch-auth').addEventListener('click', () => {
       this.renderAuth(isLogin ? 'register' : 'login');
+    });
+
+    const forgotEl = document.getElementById('forgot-password');
+    if (forgotEl) forgotEl.addEventListener('click', () => this.renderForgotPassword());
+  },
+
+  renderForgotPassword() {
+    document.getElementById('app').innerHTML = `
+      <div class="auth-screen">
+        <div class="auth-logo">&#x1F514;</div>
+        <div class="auth-title">Reset Password</div>
+        <div class="auth-subtitle">Enter your email and we'll send a reset link</div>
+        <form class="auth-form" id="forgot-form">
+          <div id="forgot-msg"></div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="forgot-email" placeholder="you@business.com" required autocomplete="email">
+          </div>
+          <button type="submit" class="btn btn-primary">Send Reset Link</button>
+        </form>
+        <div class="auth-switch">
+          <a id="back-to-login" style="cursor:pointer">Back to Sign In</a>
+        </div>
+      </div>
+    `;
+    document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msgEl = document.getElementById('forgot-msg');
+      const email = document.getElementById('forgot-email').value;
+      try {
+        const data = await API.forgotPassword(email);
+        msgEl.innerHTML = '<div class="success-msg" style="color:#00b894;background:#e8f8f5;padding:12px;border-radius:8px;margin-bottom:12px">' + data.message + '</div>';
+      } catch (err) {
+        msgEl.innerHTML = '<div class="error-msg">' + err.message + '</div>';
+      }
+    });
+    document.getElementById('back-to-login').addEventListener('click', () => this.renderAuth('login'));
+  },
+
+  renderResetPassword(token) {
+    document.getElementById('app').innerHTML = `
+      <div class="auth-screen">
+        <div class="auth-logo">&#x1F514;</div>
+        <div class="auth-title">New Password</div>
+        <div class="auth-subtitle">Choose a new password for your account</div>
+        <form class="auth-form" id="reset-form">
+          <div id="reset-msg"></div>
+          <div class="form-group">
+            <label>New Password</label>
+            <input type="password" id="reset-password" placeholder="Min 6 characters" required autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input type="password" id="reset-confirm" placeholder="Repeat password" required autocomplete="new-password">
+          </div>
+          <button type="submit" class="btn btn-primary">Reset Password</button>
+        </form>
+        <div class="auth-switch">
+          <a id="back-to-login" style="cursor:pointer">Back to Sign In</a>
+        </div>
+      </div>
+    `;
+    document.getElementById('reset-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msgEl = document.getElementById('reset-msg');
+      const password = document.getElementById('reset-password').value;
+      const confirm = document.getElementById('reset-confirm').value;
+      if (password !== confirm) {
+        msgEl.innerHTML = '<div class="error-msg">Passwords do not match</div>';
+        return;
+      }
+      try {
+        const data = await API.resetPassword(token, password);
+        msgEl.innerHTML = '<div class="success-msg" style="color:#00b894;background:#e8f8f5;padding:12px;border-radius:8px;margin-bottom:12px">' + data.message + '</div>';
+        location.hash = '';
+        setTimeout(() => this.renderAuth('login'), 2000);
+      } catch (err) {
+        msgEl.innerHTML = '<div class="error-msg">' + err.message + '</div>';
+      }
+    });
+    document.getElementById('back-to-login').addEventListener('click', () => {
+      location.hash = '';
+      this.renderAuth('login');
     });
   },
 

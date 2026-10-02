@@ -3,7 +3,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
-const DB_PATH = path.join(__dirname, '..', 'replyping.db');
+const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'replyping.db');
 let db;
 
 function getDb() {

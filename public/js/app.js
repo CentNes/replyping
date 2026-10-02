@@ -918,9 +918,9 @@ const App = {
         <button class="nav-item ${this.currentScreen === 'billing' ? 'active' : ''}" data-screen="billing">
           <span class="nav-icon">&#x1F4B3;</span>Plan
         </button>
-        <button class="nav-item ${this.currentScreen === 'dev' ? 'active' : ''}" data-screen="dev">
+        ${location.hostname === 'localhost' ? `<button class="nav-item ${this.currentScreen === 'dev' ? 'active' : ''}" data-screen="dev">
           <span class="nav-icon">&#x1F6E0;</span>Dev
-        </button>
+        </button>` : ''}
       </nav>
     `;
   },

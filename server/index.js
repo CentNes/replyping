@@ -19,6 +19,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
+if (isProd) app.set('trust proxy', 1);
+
 if (isProd && !process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET must be set in production');
   process.exit(1);

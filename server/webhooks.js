@@ -1,12 +1,24 @@
 const express = require('express');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('./database');
 const { getPlanLimits, incrementTodoUsage } = require('./billing');
 
 const router = express.Router();
 
-// Webhook verify token - set this in Railway env vars
 const WEBHOOK_VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'replyping-verify-2026';
+
+function verifyMetaSignature(req, res, next) {
+  const secret = process.env.META_APP_SECRET;
+  if (!secret) return next(); // skip in dev
+  const sig = req.headers['x-hub-signature-256'];
+  if (!sig) return res.status(401).json({ error: 'Missing signature' });
+  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(JSON.stringify(req.body)).digest('hex');
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+  next();
+}
 
 // Helper: process inbound message and create/update todo
 function processInboundMessage(userId, channelType, contactName, contactHandle, messageContent, externalConvId) {
@@ -100,7 +112,7 @@ function processOutboundMessage(userId, channelType, contactHandle, messageConte
 
 // POST /webhooks/instagram
 // Receives real Instagram Messaging API webhooks from Meta
-router.post('/instagram', (req, res) => {
+router.post('/instagram', verifyMetaSignature, (req, res) => {
   try {
     const { entry } = req.body;
 
@@ -151,7 +163,7 @@ router.get('/instagram', (req, res) => {
 
 // POST /webhooks/whatsapp
 // Receives real WhatsApp Cloud API webhooks from Meta
-router.post('/whatsapp', (req, res) => {
+router.post('/whatsapp', verifyMetaSignature, (req, res) => {
   try {
     const { entry } = req.body;
 

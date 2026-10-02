@@ -300,11 +300,19 @@ const App = {
     return this.todos.map(todo => this.renderTodoCard(todo)).join('');
   },
 
+  getInitials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  },
+
   renderTodoCard(todo) {
     const isOverdue = this.isTodoOverdue(todo);
-    const channelIcon = todo.channel_type === 'instagram' ? '&#x1F4F7;' : '&#x1F4AC;';
+    const initials = this.getInitials(todo.contact_name);
     const timeAgo = this.timeAgo(todo.last_message_time);
     const channelClass = `channel-${todo.channel_type}`;
+    const channelLabel = todo.channel_type === 'instagram' ? 'IG' : 'WA';
 
     const canReply = this.channelStatus[todo.channel_type];
     const isReplyOpen = this.replyOpenFor === todo.id;
@@ -373,7 +381,10 @@ const App = {
     return `
       <div class="todo-card ${channelClass} ${isOverdue ? 'overdue' : ''} ${isReplyOpen ? 'reply-active' : ''}">
         <div class="todo-card-header">
-          <div class="channel-icon ${todo.channel_type}">${channelIcon}</div>
+          <div class="contact-avatar ${todo.channel_type}">
+            ${initials}
+            <span class="channel-dot ${todo.channel_type}"></span>
+          </div>
           <div class="todo-contact">
             <div class="todo-contact-name">${this.escapeHtml(todo.contact_name)}</div>
             <div class="todo-contact-handle">@${this.escapeHtml(todo.contact_handle)} &middot; ${todo.channel_type}</div>

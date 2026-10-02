@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('./database');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'replyping-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? undefined : 'replyping-dev-secret');
 
 // Middleware to verify JWT
 function authenticate(req, res, next) {

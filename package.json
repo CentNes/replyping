@@ -1,6 +1,6 @@
 {
   "name": "replyping",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Turn Instagram DMs and WhatsApp messages into a reply to-do list with reminders",
   "main": "server/index.js",
   "scripts": {

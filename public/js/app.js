@@ -119,7 +119,7 @@ const App = {
             ? 'New here? <a id="switch-auth">Create an account</a>'
             : 'Already have an account? <a id="switch-auth">Sign in</a>'}
         </div>
-        ${isLogin ? '<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">Demo: demo@replyping.com / demo123</div>' : ''}
+        ${isLogin && location.hostname === 'localhost' ? '<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">Demo: demo@replyping.com / demo123</div>' : ''}
       </div>
     `;
 
